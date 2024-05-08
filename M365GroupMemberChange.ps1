@@ -17,7 +17,7 @@ $psm1="$($scriptDir)\ITAutomator M365.psm1";if ((Test-Path $psm1)) {Import-Modul
 if (!(Test-Path $scriptCSV))
 {
     ######### Template
-    "GroupNameOrEmail,MemberEmail,AddRemove" | Add-Content $scriptCSV
+    "GroupNameOrEmail,UserNameOrEmail,AddRemove" | Add-Content $scriptCSV
     "mygroup@contoso.com,user1@contoso.com,Add" | Add-Content $scriptCSV
     ######### 
 	$ErrOut=201; Write-Host "Err $ErrOut : Couldn't find '$(Split-Path $scriptCSV -leaf)'. Template CSV created. Edit CSV and run again.";Pause; Exit($ErrOut)
@@ -28,7 +28,7 @@ $entriescount = $entries.count
 Write-Host "-----------------------------------------------------------------------------"
 Write-Host ("$scriptName        Computer:$env:computername User:$env:username PSver:"+($PSVersionTable.PSVersion.Major))
 Write-Host ""
-Write-Host "Bulk actions in O365"
+Write-Host "Bulk actions in M365"
 Write-Host ""
 Write-Host ""
 Write-Host "CSV: $(Split-Path $scriptCSV -leaf) ($($entriescount) entries)"
@@ -110,9 +110,9 @@ else
             #######
             ####### Start code for object $x
             #region Object X
-            #X:GroupEmail,MemberEmail,AddRemove
             <#                 
             Mg-graph Cannot Update a mail-enabled security groups and or distribution list.
+            Use exch for 2, use mg for the other 2
             https://learn.microsoft.com/en-us/graph/api/resources/groups-overview?view=graph-rest-1.0&tabs=http
             ###################################################################################################
             # Group Type            Module Add                         Remove
@@ -123,10 +123,11 @@ else
             # Distribution          exch   Add-DistributionGroupMember Remove-DistributionGroupMember
             ###################################################################################################
             #>
-            $user = Get-MgUser -UserId $x.MemberEmail
+            $UserNameOrEmail = $x.UserNameOrEmail
+            $user = Get-MgUser -Filter "(mail eq '$($UserNameOrEmail)') or (displayname eq '$($UserNameOrEmail)')"
             if (-not $user)
             { # user bad
-                Write-Host "User not found: $($x.Mail) ERR"  -ForegroundColor Red
+                Write-Host "User not found: $($x.UserNameOrEmail) ERR"  -ForegroundColor Red
             } # user bad
             else
             { # user ok
@@ -200,7 +201,7 @@ else
         }
     } # each entry
     WriteText "------------------------------------------------------------------------------------"
-    $message ="Done. " +$processed+" of "+$entriescount+" entries processed. Press [Enter] to exit."
+    $message ="Done. $($processed) of $($entriescount) entries processed. Press [Enter] to exit."
     WriteText $message
     WriteText "------------------------------------------------------------------------------------"
 	# Transcript Save
