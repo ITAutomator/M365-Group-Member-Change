@@ -1,4 +1,8 @@
-# M365-Group-Member-Change-
+# M365-Group-Member-Change
+
+See User guide (pdf) for more information:
+To Download: Click the green Code button (above) and click Download Zip 
+
 M365 Group Member Change - Add / Remove users to groups in bulk.
 ![image](https://github.com/ITAutomator/M365-Group-Member-Change-/assets/135157036/cb62e8bb-f97f-434c-8c2a-7ca829c24e6f)
 
