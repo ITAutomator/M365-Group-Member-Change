@@ -14,7 +14,9 @@ $scriptName     = Split-Path -Path $scriptFullname -Leaf
 $scriptBase     = $scriptName.Substring(0, $scriptName.LastIndexOf('.'))
 $psm1="$($scriptDir)\ITAutomator.psm1";if ((Test-Path $psm1)) {Import-Module $psm1 -Force} else {write-output "Err 99: Couldn't find '$(Split-Path $psm1 -Leaf)'";Start-Sleep -Seconds 10;Exit(99)}
 $psm1="$($scriptDir)\ITAutomator M365.psm1";if ((Test-Path $psm1)) {Import-Module $psm1 -Force} else {write-output "Err 99: Couldn't find '$(Split-Path $psm1 -Leaf)'";Start-Sleep -Seconds 10;Exit(99)}
-if (!(Test-Path $scriptCSV))
+# see if there's a more recent CSV with this naming scheme
+$scriptCSV_latest = Get-ChildItem -Path $scriptCSV.Replace(".csv","*.csv") | Sort-Object LastWriteTime | Select-Object -Last 1 | Select-Object FullName -ExpandProperty FullName
+if (-not $scriptCSV_latest)
 {
     ######### Template
     "GroupNameOrEmail,UserNameOrEmail,AddRemove" | Add-Content $scriptCSV
@@ -23,7 +25,7 @@ if (!(Test-Path $scriptCSV))
 	$ErrOut=201; Write-Host "Err $ErrOut : Couldn't find '$(Split-Path $scriptCSV -leaf)'. Template CSV created. Edit CSV and run again.";Pause; Exit($ErrOut)
 }
 # ----------Fill $entries with contents of file or something
-$entries=@(import-csv $scriptCSV)
+$entries=@(import-csv $scriptCSV_latest)
 $entriescount = $entries.count
 Write-Host "-----------------------------------------------------------------------------"
 Write-Host ("$scriptName        Computer:$env:computername User:$env:username PSver:"+($PSVersionTable.PSVersion.Major))
@@ -31,18 +33,31 @@ Write-Host ""
 Write-Host "Bulk actions in M365"
 Write-Host ""
 Write-Host ""
-Write-Host "CSV: $(Split-Path $scriptCSV -leaf) ($($entriescount) entries)"
+Write-Host "CSV: $(Split-Path $scriptCSV_latest -leaf) ($($entriescount) entries)"
 $entries | Format-Table
 Write-Host "-----------------------------------------------------------------------------"
 PressEnterToContinue
 $no_errors = $true
 $error_txt = ""
 $results = @()
-# Load required modules
-$module= "Microsoft.Graph.Groups" ; Write-Host "Loadmodule $($module)..." -NoNewline ; $lm_result=LoadModule $module -checkver $false; Write-Host $lm_result
-if ($lm_result.startswith("ERR")) {
-    Write-Host "ERR: Load-Module $($module) failed. Suggestion: Open PowerShell $($PSVersionTable.PSVersion.Major) as admin and run: Install-Module $($module)";PressEnterToContinue; Return $false
+#region modules
+<#
+(prereqs: as admin run these powershell commands)
+Install-Module Microsoft.Graph.Authentication
+Install-Module Microsoft.Graph.Identity.DirectoryManagement
+Install-Module Microsoft.Graph.Users
+#>
+$modules=@()
+$modules+="Microsoft.Graph.Authentication"
+$modules+="Microsoft.Graph.Groups"
+ForEach ($module in $modules)
+{ 
+    Write-Host "Loadmodule $($module)..." -NoNewline ; $lm_result=LoadModule $module -checkver $false; Write-Host $lm_result
+    if ($lm_result.startswith("ERR")) {
+        Write-Host "ERR: Load-Module $($module) failed. Suggestion: Open PowerShell $($PSVersionTable.PSVersion.Major) as admin and run: Install-Module $($module)";Start-sleep  3; Return $false
+    }
 }
+#endregion modules
 # Connect
 $myscopes=@()
 $myscopes+="User.ReadWrite.All"
@@ -50,9 +65,8 @@ $myscopes+="GroupMember.ReadWrite.All"
 $myscopes+="Group.ReadWrite.All"
 $connected_ok = ConnectMgGraph -myscopes $myscopes
 $domain_mg = Get-MgDomain -ErrorAction Ignore| Where-object IsDefault -eq $True | Select-object -ExpandProperty Id
-# connect failed
 if (-not ($connected_ok))
-{
+{ # connect failed
     Write-Host "Connection failed."
 }
 else
@@ -143,7 +157,7 @@ else
                     If ($x.AddRemove -eq "Add")
                     { # Add
                         if ($isMember) {
-                            Write-Host "User already in [$($groupinfo)] group. OK" -ForegroundColor Yellow
+                            Write-Host "User [$($user.DisplayName)] already in [$($groupinfo)] group [$($group.Name)]. OK" -ForegroundColor Yellow
                         } # is a member
                         else
                         { # not a member
@@ -157,13 +171,13 @@ else
                             else { # Mg
                                 New-MgGroupMember -GroupId $group.Id -DirectoryObjectId $user.id
                             }
-                            Write-Host "User added to [$($groupinfo)] group. OK" -ForegroundColor Green
+                            Write-Host "User [$($user.DisplayName)] added to [$($groupinfo)] group [$($group.Name)]. OK" -ForegroundColor Green
                         } # not a member
                     } # Add
                     Elseif ($x.AddRemove -eq "Remove")
                     { # Remove
                         if (-not $isMember) {
-                            Write-Host "User already removed from [$($groupinfo)] group. OK" -ForegroundColor Yellow
+                            Write-Host "User [$($user.DisplayName)] already removed from [$($groupinfo)] group [$($group.Name)]. OK" -ForegroundColor Yellow
                         } # not a member
                         else
                         { # is a member
@@ -177,7 +191,7 @@ else
                             else { # Mg
                                 Remove-MgGroupMemberDirectoryObjectByRef -GroupId $group.Id -DirectoryObjectId $user.Id 
                             }
-                            Write-Host "User removed from [$($groupinfo)] group. OK" -ForegroundColor Green
+                            Write-Host "User [$($user.DisplayName)]  removed from [$($groupinfo)] group [$($group.Name)]. OK" -ForegroundColor Green
                         } # is a member
                     } # Remove
                     Else

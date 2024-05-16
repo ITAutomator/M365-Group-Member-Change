@@ -159,7 +159,7 @@ Function ConnectMgGraph ($myscopes=$null, $domain=$null, $checkver=$false)
         } # max declines
         Write-Host "Connect-MgGraph" -ForegroundColor Yellow -NoNewline
         if ($domain){
-            Write-Host "($($domain))"
+            Write-Host " ($($domain))"
         }
         else{Write-Host ""}
         # Get-MgContext -ErrorAction SilentlyContinue

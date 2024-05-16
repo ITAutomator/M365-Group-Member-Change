@@ -493,7 +493,7 @@ Function PauseTimed ()
     }
 Function PressEnterToContinue
 {
-    Read-Host "Press <Enter> to continue"
+    Read-Host "Press <Enter> to continue" | Out-Null
 }
 Function GlobalsSave ($Globals, $scriptXML)
     {
@@ -3346,7 +3346,7 @@ Function LoadModule ($m, $providercheck = "", $checkver = $true) #nuget
                         if (AskForChoice -Message $msg)
                         {
                             write-verbose "Module $($m) is available online, downloading to disk (as admin to all users)..."
-                            Install-Module -Name $m -Force -Verbose -Scope AllUsers
+                            Install-Module -Name $m -Force -Scope AllUsers
                         }
                         else
                         {
